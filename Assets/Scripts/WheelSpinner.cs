@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Globalization;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -10,12 +11,14 @@ public class WheelSpinner : MonoBehaviour
     [System.Serializable]
     public class Reward
     {
-        public Sprite image;
+        public Sprite image => sliceImage != null ? sliceImage.sprite : null;
+
+        [Tooltip("Hierarchy'deki bu yuvanın küçük ödül Image objesi.")]
+        public Image sliceImage;
         public string rewardId;
         public bool isBomb;
 
-        [Min(1)]
-        public int baseAmount = 1;
+        [Min(1)] public int baseAmount = 1;
 
         public TMP_Text amountText;
     }
@@ -33,16 +36,16 @@ public class WheelSpinner : MonoBehaviour
     [SerializeField] private Button confirmButton;
     [SerializeField] private GameObject rewardFlash;
 
-    [Header("Diğer UI Bağlantıları")]
-    [SerializeField] private TMP_Text zoneText;
+    [Header("Ekrandaki Yazılar")]
     [SerializeField] private TMP_Text collectedText;
-    [SerializeField] private Button nextButton;
+
+    [Header("Sadece Silver ve Golden için")]
     [SerializeField] private Button leaveButton;
 
-    [Header("Her zone için artış oranı")]
+    [Header("Her zone için başlangıç miktarına eklenecek artış")]
     [SerializeField, Min(0f)] private float growthPerZone = 0.1f;
 
-    [Header("Üstteki yuvadan başlayarak saat yönünde sırala")]
+    [Header("Üstteki yuvadan başlayarak saat yönünde")]
     [SerializeField] private Reward[] rewards = new Reward[8];
 
     private enum State
@@ -50,7 +53,6 @@ public class WheelSpinner : MonoBehaviour
         Ready,
         Spinning,
         RewardOpen,
-        Collected,
         Lost,
         Exited,
         Loading
@@ -60,10 +62,33 @@ public class WheelSpinner : MonoBehaviour
     private TMP_Text confirmLabel;
     private bool configured;
 
+    private Reward pendingReward;
+    private long pendingAmount;
+
     private void OnValidate()
-    {
-        spinButton = GetComponent<Button>();
-    }
+{
+    spinButton = GetComponent<Button>();
+
+    Canvas canvas = GetComponentInParent<Canvas>();
+    if (canvas == null)
+        return;
+
+    Button[] buttons = canvas.GetComponentsInChildren<Button>(true);
+
+    confirmButton = FindButton(buttons, "ui_button_spin_reward_claim");
+    leaveButton = FindButton(buttons, "ui_button_spin_leave");
+}
+
+    private Button FindButton(Button[] buttons, string objectName)
+{
+        foreach (Button button in buttons)
+        {
+            if (button.name == objectName)
+                return button;
+        }
+
+        return null;
+}
 
     private void Awake()
     {
@@ -73,8 +98,10 @@ public class WheelSpinner : MonoBehaviour
             rewardPanel.SetActive(false);
 
         if (confirmButton != null)
+        {
             confirmLabel =
                 confirmButton.GetComponentInChildren<TMP_Text>(true);
+        }
     }
 
     private void OnEnable()
@@ -83,9 +110,6 @@ public class WheelSpinner : MonoBehaviour
 
         if (confirmButton != null)
             confirmButton.onClick.AddListener(Confirm);
-
-        if (nextButton != null)
-            nextButton.onClick.AddListener(NextZone);
 
         if (leaveButton != null)
             leaveButton.onClick.AddListener(Leave);
@@ -98,9 +122,6 @@ public class WheelSpinner : MonoBehaviour
 
         if (confirmButton != null)
             confirmButton.onClick.RemoveListener(Confirm);
-
-        if (nextButton != null)
-            nextButton.onClick.RemoveListener(NextZone);
 
         if (leaveButton != null)
             leaveButton.onClick.RemoveListener(Leave);
@@ -126,18 +147,61 @@ public class WheelSpinner : MonoBehaviour
         {
             wheel.localRotation = Quaternion.identity;
 
-            foreach (Reward reward in rewards)
-            {
-                if (reward.amountText != null)
-                {
-                    reward.amountText.text = reward.isBomb
-                        ? ""
-                        : "x" + FormatAmount(AmountFor(reward));
-                }
-            }
+            RefreshSliceVisuals(false);
         }
 
         RefreshUI();
+    }
+
+    public void RefreshSliceVisuals(bool editorPreview)
+    {
+        if (rewards == null) return;
+
+        foreach (Reward reward in rewards)
+        {
+            if (reward == null) continue;
+
+            if (reward.sliceImage != null &&
+                !reward.sliceImage.preserveAspect)
+            {
+#if UNITY_EDITOR
+                if (editorPreview)
+                    UnityEditor.Undo.RecordObject(reward.sliceImage, "Update slice image");
+#endif
+                reward.sliceImage.preserveAspect = true;
+#if UNITY_EDITOR
+                if (editorPreview)
+                {
+                    UnityEditor.EditorUtility.SetDirty(reward.sliceImage);
+                    UnityEditor.PrefabUtility.RecordPrefabInstancePropertyModifications(
+                        reward.sliceImage);
+                }
+#endif
+            }
+
+            if (reward.amountText == null) continue;
+
+            long amount = editorPreview
+                ? System.Math.Max(1, reward.baseAmount)
+                : AmountFor(reward);
+
+            string label = reward.isBomb ? "" : "x" + FormatAmount(amount);
+            if (reward.amountText.text == label) continue;
+
+#if UNITY_EDITOR
+            if (editorPreview)
+                UnityEditor.Undo.RecordObject(reward.amountText, "Update slice amount");
+#endif
+            reward.amountText.text = label;
+#if UNITY_EDITOR
+            if (editorPreview)
+            {
+                UnityEditor.EditorUtility.SetDirty(reward.amountText);
+                UnityEditor.PrefabUtility.RecordPrefabInstancePropertyModifications(
+                    reward.amountText);
+            }
+#endif
+        }
     }
 
     private bool ValidateSetup()
@@ -148,24 +212,28 @@ public class WheelSpinner : MonoBehaviour
             rewardAmount == null ||
             confirmButton == null ||
             confirmLabel == null ||
-            zoneText == null ||
-            collectedText == null ||
-            nextButton == null ||
-            leaveButton == null)
+            collectedText == null)
         {
             return SetupError(
-                "Wheel Spinner: Inspector'daki UI bağlantılarını tamamla."
+                "Wheel Spinner: Inspector'daki UI alanlarını doldur."
+            );
+        }
+
+        if (GameManager.IsSafe && leaveButton == null)
+        {
+            return SetupError(
+                "Silver ve Golden sahnelerinde Leave Button bağlanmalı."
             );
         }
 
         if (rewards == null || rewards.Length < 2)
         {
             return SetupError(
-                "Rewards listesinde çarktaki tüm yuvalar olmalı."
+                "Rewards listesine çarkın bütün yuvalarını ekle."
             );
         }
 
-        int bombs = 0;
+        int bombCount = 0;
 
         for (int i = 0; i < rewards.Length; i++)
         {
@@ -174,9 +242,12 @@ public class WheelSpinner : MonoBehaviour
             if (reward == null || reward.image == null)
                 return SetupError($"Element {i}: Image eksik.");
 
+            if (reward.sliceImage == null)
+                return SetupError($"Element {i}: Slice Image alanını bağla.");
+
             if (reward.isBomb)
             {
-                bombs++;
+                bombCount++;
                 continue;
             }
 
@@ -191,12 +262,12 @@ public class WheelSpinner : MonoBehaviour
             }
         }
 
-        int expectedBombs = GameManager.IsSafe ? 0 : 1;
+        int requiredBombCount = GameManager.IsSafe ? 0 : 1;
 
-        if (bombs != expectedBombs)
+        if (bombCount != requiredBombCount)
         {
             return SetupError(
-                "Bronze tam 1 bomba, Silver ve Golden 0 bomba içermeli."
+                "Bronze 1 bomba içermeli. Silver ve Golden'da bomba olmamalı."
             );
         }
 
@@ -216,40 +287,31 @@ public class WheelSpinner : MonoBehaviour
 
         return System.Math.Max(
             1L,
-            (long)System.Math.Ceiling(reward.baseAmount * multiplier)
+            (long)System.Math.Ceiling(
+                reward.baseAmount * multiplier
+            )
         );
     }
 
     private string FormatAmount(long amount)
     {
-        var culture =
-            System.Globalization.CultureInfo.InvariantCulture;
+        var culture = CultureInfo.InvariantCulture;
 
         if (amount >= 1000000)
-        {
-            return (amount / 1000000m)
-                .ToString("0.##", culture) + "M";
-        }
+            return (amount / 1000000m).ToString("0.##", culture) + "M";
 
         if (amount >= 1000)
-        {
-            return (amount / 1000m)
-                .ToString("0.##", culture) + "K";
-        }
+            return (amount / 1000m).ToString("0.##", culture) + "K";
 
         return amount.ToString(culture);
     }
 
     private void RefreshUI()
     {
-        spinButton.interactable =
-            configured && state == State.Ready;
-
-        if (nextButton != null)
+        if (spinButton != null)
         {
-            nextButton.gameObject.SetActive(
-                configured && state == State.Collected
-            );
+            spinButton.interactable =
+                configured && state == State.Ready;
         }
 
         if (leaveButton != null)
@@ -257,24 +319,15 @@ public class WheelSpinner : MonoBehaviour
             leaveButton.gameObject.SetActive(GameManager.IsSafe);
 
             leaveButton.interactable =
-                configured &&
-                (state == State.Ready || state == State.Collected);
+                configured && state == State.Ready;
         }
 
-        if (zoneText != null)
-        {
-            string zoneType = GameManager.IsSuper
-                ? " - SUPER"
-                : GameManager.IsSafe ? " - SAFE" : "";
-
-            zoneText.text = "ZONE " + GameManager.Zone + zoneType;
-        }
 
         if (collectedText != null)
         {
             collectedText.text = state == State.Exited
                 ? "SAVED THIS SESSION\n" + GameManager.Summary(true)
-                : "COLLECTED\n" + GameManager.Summary();
+                : "Collected\n" + GameManager.Summary();
         }
     }
 
@@ -293,7 +346,9 @@ public class WheelSpinner : MonoBehaviour
 
         int selectedSlice = Random.Range(0, rewards.Length);
 
-        float targetAngle = selectedSlice * (360f / rewards.Length);
+        float targetAngle =
+            selectedSlice * (360f / rewards.Length);
+
         float startAngle = wheel.localEulerAngles.z;
 
         float remainingAngle =
@@ -308,11 +363,17 @@ public class WheelSpinner : MonoBehaviour
         {
             elapsed += Time.deltaTime;
 
-            float progress = Mathf.Clamp01(elapsed / duration);
-            float eased = 1f - Mathf.Pow(1f - progress, 3f);
-            float angle = Mathf.Lerp(startAngle, endAngle, eased);
+            float progress =
+                Mathf.Clamp01(elapsed / duration);
 
-            wheel.localRotation = Quaternion.Euler(0f, 0f, angle);
+            float eased =
+                1f - Mathf.Pow(1f - progress, 3f);
+
+            float angle =
+                Mathf.Lerp(startAngle, endAngle, eased);
+
+            wheel.localRotation =
+                Quaternion.Euler(0f, 0f, angle);
 
             yield return null;
         }
@@ -320,9 +381,11 @@ public class WheelSpinner : MonoBehaviour
         wheel.localRotation =
             Quaternion.Euler(0f, 0f, targetAngle);
 
-        Reward result = rewards[selectedSlice];
+        ShowResult(rewards[selectedSlice]);
+    }
 
-        rewardImage.gameObject.SetActive(true);
+    private void ShowResult(Reward result)
+    {
         rewardImage.enabled = true;
         rewardImage.sprite = result.image;
         rewardImage.preserveAspect = true;
@@ -332,6 +395,9 @@ public class WheelSpinner : MonoBehaviour
 
         if (result.isBomb)
         {
+            pendingReward = null;
+            pendingAmount = 0;
+
             GameManager.LoseRewards();
 
             state = State.Lost;
@@ -340,12 +406,11 @@ public class WheelSpinner : MonoBehaviour
         }
         else
         {
-            long amount = AmountFor(result);
-
-            GameManager.AddReward(result.rewardId.Trim(), amount);
+            pendingReward = result;
+            pendingAmount = AmountFor(result);
 
             state = State.RewardOpen;
-            rewardAmount.text = "x" + FormatAmount(amount);
+            rewardAmount.text = "x" + FormatAmount(pendingAmount);
             confirmLabel.text = "CLAIM";
         }
 
@@ -362,26 +427,32 @@ public class WheelSpinner : MonoBehaviour
 
             GameManager.Restart();
             LoadZoneScene();
+            return;
         }
-        else if (state == State.RewardOpen)
-        {
-            rewardPanel.SetActive(false);
 
-            state = State.Collected;
-            RefreshUI();
-        }
-    }
-
-    private void NextZone()
-    {
-        if (state != State.Collected)
+        if (state != State.RewardOpen || pendingReward == null)
             return;
 
-        int next = GameManager.Zone + 1;
-        int scene = next % 30 == 0 ? 2 : next % 5 == 0 ? 1 : 0;
+        int nextZone = GameManager.Zone + 1;
 
-        if (!CanLoad(scene))
+        int nextScene = nextZone % 30 == 0
+            ? 2
+            : nextZone % 5 == 0
+                ? 1
+                : 0;
+
+        if (!CanLoad(nextScene))
             return;
+
+        GameManager.AddReward(
+            pendingReward.rewardId.Trim(),
+            pendingAmount
+        );
+
+        pendingReward = null;
+        pendingAmount = 0;
+
+        rewardPanel.SetActive(false);
 
         GameManager.NextZone();
         LoadZoneScene();
@@ -391,16 +462,14 @@ public class WheelSpinner : MonoBehaviour
     {
         if (!configured ||
             !GameManager.IsSafe ||
-            (state != State.Ready && state != State.Collected))
+            state != State.Ready)
         {
             return;
         }
 
         GameManager.BankRewards();
-
         state = State.Exited;
 
-        // Yazı bu nesnenin altında olabilir; yalnızca Image'ı kapat.
         rewardImage.enabled = false;
 
         if (rewardFlash != null)
@@ -442,3 +511,24 @@ public class WheelSpinner : MonoBehaviour
         SceneManager.LoadSceneAsync(GameManager.SceneIndex);
     }
 }
+
+#if UNITY_EDITOR
+[UnityEditor.CustomEditor(typeof(WheelSpinner))]
+public class WheelSpinnerInspector : UnityEditor.Editor
+{
+    public override void OnInspectorGUI()
+    {
+        bool changed = DrawDefaultInspector();
+
+        if (Application.isPlaying) return;
+
+        var spinner = (WheelSpinner)target;
+
+        if (changed)
+            spinner.RefreshSliceVisuals(true);
+
+        if (GUILayout.Button("Refresh Wheel Preview"))
+            spinner.RefreshSliceVisuals(true);
+    }
+}
+#endif
