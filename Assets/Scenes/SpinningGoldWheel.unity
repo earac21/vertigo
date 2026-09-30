@@ -299,7 +299,7 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_Sprite: {fileID: -1907850934746500175, guid: 896f8970985b04fb388a05d7e4c972e0, type: 3}
-  m_Type: 0
+  m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
@@ -1757,6 +1757,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a5664df1080a14bca8f92b24c5e78ddc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WheelSpinner
+  cardFrame: {fileID: 0}
+  cardBackground: {fileID: 0}
   wheel: {fileID: 584711912}
   spinButton: {fileID: 791045707}
   fullTurns: 5
@@ -1773,41 +1775,105 @@ MonoBehaviour:
   - sliceImage: {fileID: 423181731}
     rewardId: cash
     isBomb: 0
+    isChest: 0
+    cardMultiplier: 1
+    weaponMultiplier: 1
+    cards: []
+    weapons: []
     baseAmount: 4000
     amountText: {fileID: 1095626038}
   - sliceImage: {fileID: 1951175412}
     rewardId: standard_chest
     isBomb: 0
+    isChest: 1
+    cardMultiplier: 1
+    weaponMultiplier: 0
+    cards:
+    - id: card_armor
+      image: {fileID: -64891307874697501, guid: fd0bc16b81f9a4b56a66973c41ff3ed4, type: 3}
+    - id: card_knife
+      image: {fileID: 1742066445721694904, guid: 8a67a6d20eead482191e8a1b8fc80f20, type: 3}
+    - id: card_pistol
+      image: {fileID: 95983631781727552, guid: b7aa4f29dfcd141f2b55e72bf9987454, type: 3}
+    weapons: []
     baseAmount: 40
     amountText: {fileID: 1420891871}
   - sliceImage: {fileID: 85153464}
     rewardId: gold
     isBomb: 0
+    isChest: 0
+    cardMultiplier: 1
+    weaponMultiplier: 1
+    cards: []
+    weapons: []
     baseAmount: 40
     amountText: {fileID: 1163041059}
   - sliceImage: {fileID: 244211281}
     rewardId: small_chest
     isBomb: 0
+    isChest: 1
+    cardMultiplier: 1
+    weaponMultiplier: 1
+    cards:
+    - id: card_armor
+      image: {fileID: -64891307874697501, guid: fd0bc16b81f9a4b56a66973c41ff3ed4, type: 3}
+    - id: card_knife
+      image: {fileID: 1742066445721694904, guid: 8a67a6d20eead482191e8a1b8fc80f20, type: 3}
+    - id: card_pistol
+      image: {fileID: 95983631781727552, guid: b7aa4f29dfcd141f2b55e72bf9987454, type: 3}
+    weapons:
+    - id: weapon_sniper
+      image: {fileID: -3878008160132674235, guid: 54b84a5bac7c143a8b689b20dd7635a6, type: 3}
+    - id: weapon_shotgun
+      image: {fileID: -5281350351124101004, guid: f08c00a1467ea433e8b630dacb9a91af, type: 3}
+    - id: weapon_rifle
+      image: {fileID: 795073897822961988, guid: acfb1c40ad2b64838af7641f97e9e91f, type: 3}
     baseAmount: 1
     amountText: {fileID: 598177787}
   - sliceImage: {fileID: 1586360903}
     rewardId: gold
     isBomb: 0
+    isChest: 0
+    cardMultiplier: 1
+    weaponMultiplier: 1
+    cards: []
+    weapons: []
     baseAmount: 400
     amountText: {fileID: 1479133856}
   - sliceImage: {fileID: 1427602100}
     rewardId: cash
     isBomb: 0
+    isChest: 0
+    cardMultiplier: 1
+    weaponMultiplier: 1
+    cards: []
+    weapons: []
     baseAmount: 1200
     amountText: {fileID: 1078532839}
   - sliceImage: {fileID: 2046565867}
     rewardId: super_chest
     isBomb: 0
+    isChest: 0
+    cardMultiplier: 0
+    weaponMultiplier: 1
+    cards: []
+    weapons:
+    - id: weapon_knife
+      image: {fileID: 4658459910315597717, guid: af43b0b8f1a7f4ee6b8542c1fb1d5779, type: 3}
+    - id: weapon_shotgun
+      image: {fileID: -1995457932549516950, guid: 1d2243940ff884575a918d1a6947caf4, type: 3}
+    - id: weapon_sniper
+      image: {fileID: -3878008160132674235, guid: 54b84a5bac7c143a8b689b20dd7635a6, type: 3}
     baseAmount: 40
     amountText: {fileID: 1033850607}
   - sliceImage: {fileID: 1866537113}
     rewardId: gold
     isBomb: 0
+    isChest: 0
+    cardMultiplier: 1
+    weaponMultiplier: 1
+    cards: []
+    weapons: []
     baseAmount: 800
     amountText: {fileID: 2063491210}
 --- !u!1 &832575517
@@ -2578,7 +2644,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1358383867
 RectTransform:
   m_ObjectHideFlags: 0

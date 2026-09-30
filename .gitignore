@@ -7,10 +7,12 @@
 /[Uu]ser[Ss]ettings/
 /[Mm]emoryCaptures/
 /[Rr]ecordings/
+/*_BackUpThisFolder_ButDontShipItWithYourGame/
 
 .vs/
 .idea/
 .DS_Store
+.utmp/
 *.csproj
 *.sln
 *.slnx
